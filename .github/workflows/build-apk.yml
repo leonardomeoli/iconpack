@@ -14,6 +14,7 @@ jobs:
         run: |
           mkdir -p app/src/main/java/com/leonardo/s25icons app/src/main/res/{drawable-nodpi,values,xml} app/src/main/assets
           unzip -q icons_assets.zip -d app/src/main/res/drawable-nodpi
+          mv app/src/main/res/drawable-nodpi/1byone_health.webp app/src/main/res/drawable-nodpi/icon_1byone_health.webp
           python3 - <<'PY'
           from pathlib import Path
           names=sorted(p.stem for p in Path('app/src/main/res/drawable-nodpi').glob('*.webp'))
