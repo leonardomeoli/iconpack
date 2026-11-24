@@ -1,1 +1,35 @@
-
+name: Build APK
+on: {workflow_dispatch: {}}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+      - name: Generate project from 2 uploaded files
+        run: |
+          mkdir -p app/src/main/java/com/leonardo/s25icons app/src/main/res/{drawable-nodpi,values,xml} app/src/main/assets
+          unzip -q icons_assets.zip -d app/src/main/res/drawable-nodpi
+          python3 - <<'PY'
+          from pathlib import Path
+          names=sorted(p.stem for p in Path('app/src/main/res/drawable-nodpi').glob('*.webp'))
+          d='<?xml version="1.0"?><resources>\n'+''.join(f'<item drawable="{n}"/>\n' for n in names)+'</resources>'
+          Path('app/src/main/res/xml/drawable.xml').write_text(d); Path('app/src/main/assets/drawable.xml').write_text(d)
+          pkgs={'outlook':'com.microsoft.office.outlook','onedrive':'com.microsoft.skydrive','powerpoint':'com.microsoft.office.powerpoint','word':'com.microsoft.office.word','excel':'com.microsoft.office.excel','teams':'com.microsoft.teams','edge':'com.microsoft.emmx','copilot':'com.microsoft.copilot','youtube':'com.google.android.youtube','gmail':'com.google.android.gm','maps':'com.google.android.apps.maps','meet':'com.google.android.apps.tachyon','messages':'com.google.android.apps.messaging','photos':'com.google.android.apps.photos','drive':'com.google.android.apps.docs','play_store':'com.android.vending','google_wallet':'com.google.android.apps.walletnfcrel','settings':'com.android.settings','camera':'com.sec.android.app.camera','gallery':'com.sec.android.gallery3d','calculator':'com.sec.android.app.popupcalculator','samsung_wallet':'com.samsung.android.spay','galaxy_store':'com.sec.android.app.samsungapps','good_lock':'com.samsung.android.goodlock','secure_folder':'com.samsung.knox.securefolder'}
+          a='<?xml version="1.0"?><resources>\n'+''.join(f'<item component="ComponentInfo{{{p}/{p}.MainActivity}}" drawable="{n}"/>\n' for n,p in pkgs.items())+'</resources>'
+          Path('app/src/main/res/xml/appfilter.xml').write_text(a);Path('app/src/main/assets/appfilter.xml').write_text(a)
+          PY
+          printf '%s' '<resources><string name="app_name">S25 Illustrated Icons</string><style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar"/></resources>' > app/src/main/res/values/base.xml
+          printf '%s' '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@drawable/copilot"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter><intent-filter><action android:name="org.adw.ActivityStarter.THEMES"/></intent-filter><intent-filter><action android:name="com.novalauncher.THEME"/></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
+          printf '%s' 'package com.leonardo.s25icons; import android.app.*;import android.os.*;import android.widget.*; public class MainActivity extends Activity{public void onCreate(Bundle b){super.onCreate(b);TextView t=new TextView(this);t.setPadding(40,60,40,40);t.setTextSize(20);t.setText("S25 Illustrated Icons\n\nInstalled. Open Good Lock > Theme Park > Icon.");setContentView(t);}}' > app/src/main/java/com/leonardo/s25icons/MainActivity.java
+          printf '%s\n' "pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }" "dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }" "rootProject.name='S25IconPack'; include ':app'" > settings.gradle
+          printf '%s\n' "plugins { id 'com.android.application' version '8.7.3' apply false }" > build.gradle
+          printf '%s\n' "plugins { id 'com.android.application' }" "android { namespace 'com.leonardo.s25icons'; compileSdk 35; defaultConfig { applicationId 'com.leonardo.s25icons'; minSdk 26; targetSdk 35; versionCode 1; versionName '1.0' } }" > app/build.gradle
+      - run: gradle :app:assembleDebug --no-daemon
+      - run: cp app/build/outputs/apk/debug/app-debug.apk S25-Illustrated-Icons.apk
+      - uses: actions/upload-artifact@v4
+        with: {name: S25-Illustrated-Icons-APK, path: S25-Illustrated-Icons.apk}
